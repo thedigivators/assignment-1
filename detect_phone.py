@@ -4,7 +4,22 @@ import threading
 import requests
 from time import sleep, time
 
-# ESP32 URL
+MQTT_BROKER = "broker.hivemq.com"  
+MQTT_PORT = 1883                  
+MQTT_TOPIC = "iot/detect/handphone"      
+MQTT_CLIENT_ID = "iot_cam" 
+
+mqtt_client = mqtt.Client(
+    client_id=MQTT_CLIENT_ID,
+    clean_session=True,
+    userdata=None,
+    protocol=mqtt.MQTTv311,
+    transport="tcp"
+)
+mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+mqtt_client.loop_start() 
+
+#esp32-cam sebagai kamera webserver
 URL = "http://192.168.18.84"
 AWB = True
 video = cv2.VideoCapture(URL + ":81/stream")
@@ -66,10 +81,15 @@ while True:
                 terdeteksi += 1
                 file_name = f"data/handphone_terdeteksi{terdeteksi}.jpg"
                 cv2.imwrite(file_name, frame_result)
+                
                 data = {"Terdeteksi handphone" : terdeteksi}
                 headers = {"Content-Type" : "application/json", "X-Auth-Token":"BBUS-Ubq4m0YjEKtSfJDfVolqxOOs2gZfoz"}
                 response = requests.post(UBIDOTS_ENDPOINT, json=data, headers=headers)
                 print(f"status pengiriman = {response.status_code}, {response.text}")
+                
+                pesan_mqtt = "terdeteksi handphone, lampu dan buzzer dinyalakan!"
+                mqtt_client.publish(MQTT_TOPIC, pesan_mqtt)
+
 
         cv2.imshow("Phone Detector", frame_result)
         key = cv2.waitKey(1)
